@@ -1,0 +1,14 @@
+[
+  {
+    "firstName": "testName1",
+    "lastName": "testSurname1",
+    "patronymic": "testPatronymic1",
+    "age": 31251
+  },
+  {
+    "firstName": "testName2",
+    "lastName": "testSurname2",
+    "patronymic": "testPatronymic2",
+    "age": 31252
+  }
+]
