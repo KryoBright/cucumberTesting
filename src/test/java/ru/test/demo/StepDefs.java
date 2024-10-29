@@ -7,26 +7,36 @@ import io.cucumber.java.en.And;
 import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
+import io.cucumber.java.ru.И;
+import io.cucumber.java.ru.Когда;
+import io.cucumber.java.ru.Тогда;
 import io.cucumber.spring.CucumberContextConfiguration;
+import lombok.AllArgsConstructor;
+import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.ResponseEntity;
 import org.springframework.util.ResourceUtils;
 
 import java.io.File;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 @CucumberContextConfiguration
 @SpringBootTest
+@RequiredArgsConstructor
 public class StepDefs {
     private static Integer firstNumber;
     private static Integer secondNumber;
     private static Integer result;
     private static String givenString;
     private static String replacedSymbol;
+
+    private final RandomUserFeignClient feignClient;
 
     @Given("^(первое|второе) число (\\d+)$")
     public void setNumber(String numberType, Integer numberValue) {
@@ -137,5 +147,35 @@ public class StepDefs {
     private <T> T getObjectFromFile(String fileName, TypeReference<T> type) {
         return new ObjectMapper()
                 .readValue(getJsonFromFile(fileName), type);
+    }
+
+    private ResponseEntity<Map<String, Object>> response;
+
+    @When("запрос на получение сотрудника")
+    public void getUsersRest() {
+        response = feignClient.getUsers();
+    }
+
+    @Then("статус ответа {int}")
+    public void checkResponseStatus(int status) {
+        assertThat(response.getStatusCode().value()).isEqualTo(status);
+    }
+
+    @Then("вывести заголовки ответа")
+    public void printHeaders() {
+        System.out.println(response.getHeaders());
+    }
+
+    @Then("вывести тело ответа")
+    public void printBody() {
+        System.out.println(response.getBody());
+    }
+
+    @Then("^присутствует непустое поле (.+)$")
+    public void checkFieldPresent(String fieldName) {
+        var body = response.getBody();
+        var user = ((List<Map<String, Object>>)body.get("results")).get(0);
+        assertThat(user).containsKey(fieldName)
+                .extractingByKey(fieldName).isEqualTo("female");
     }
 }
