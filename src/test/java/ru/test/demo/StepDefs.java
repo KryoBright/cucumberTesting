@@ -9,18 +9,26 @@ import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
 import io.cucumber.java.ru.И;
 import io.cucumber.java.ru.Когда;
+import io.cucumber.java.ru.То;
 import io.cucumber.java.ru.Тогда;
 import io.cucumber.spring.CucumberContextConfiguration;
 import lombok.AllArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.ResourceUtils;
 
 import java.io.File;
 import java.nio.file.Files;
+import java.text.DateFormat;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
@@ -37,6 +45,8 @@ public class StepDefs {
     private static String replacedSymbol;
 
     private final RandomUserFeignClient feignClient;
+    private final ScheduleServiceFeignClient serviceFeignClient;
+    private final ScheduleTemplateRepository scheduleTemplateRepository;
 
     @Given("^(первое|второе) число (\\d+)$")
     public void setNumber(String numberType, Integer numberValue) {
@@ -177,5 +187,49 @@ public class StepDefs {
         var user = ((List<Map<String, Object>>)body.get("results")).get(0);
         assertThat(user).containsKey(fieldName)
                 .extractingByKey(fieldName).isEqualTo("female");
+    }
+
+    private ResponseEntity<Map<String, Object>> secondResponse;
+    private String id;
+
+    @When("выполнен запрос на создание шаблона расписания")
+    public void scheduleTemplateRequest() {
+        response = serviceFeignClient.createScheduleTemplate();
+    }
+
+    @When("получен успешный ответ")
+    public void successResponse() {
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatusCode.valueOf(200));
+    }
+
+    @Then("если выполнен запрос на получение по id из ответа")
+    public void scheduleRequestById() {
+        id = response.getBody().get("id").toString();
+        response = serviceFeignClient.readScheduleTemplate(id);
+    }
+
+    @Then("дата создания недавняя")
+    public void creationDateRecent() {
+        var scheduleTemplate = scheduleTemplateRepository.findById(id)
+                .orElseThrow();
+        assertThat(scheduleTemplate.getCreationDate())
+                .isBetween(Instant.now().minus(1, ChronoUnit.MINUTES),Instant.now());
+    }
+
+    @Then("если выполнен повторный запрос")
+    public void repeatRequest() {
+        secondResponse = serviceFeignClient.readScheduleTemplate(id);
+    }
+
+    @Then("ответ совпадает")
+    public void responseMatch() {
+        assertThat(response.getBody()).isEqualTo(response.getBody());
+    }
+
+    @Then("в базе есть шаблон с id из ответа")
+    public void existsTemplate() {
+        assertThat(
+                scheduleTemplateRepository.existsById(id)
+        ).isTrue();
     }
 }
